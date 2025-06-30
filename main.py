@@ -1,87 +1,168 @@
 import yt_dlp
 import subprocess
 import os
+import shutil
+from typing import Tuple, Optional
 
-# Função para garantir que o diretório 'media' exista
-def ensure_media_directory():
-    if not os.path.exists('media'):
-        os.makedirs('media')
+# Constantes
+REQUIRED_DIRS = ["tmp", "downloads"]
+AUDIO_OPTION = "1"
+VIDEO_OPTION = "2"
 
-def download_content(url, download_audio=False):
-    ensure_media_directory()  # Garantir que o diretório 'media' exista
-    
+class ErroDownload(Exception):
+    """Exceção personalizada para falhas no download"""
+    pass
+
+class ErroMerge(Exception):
+    """Exceção personalizada para falhas na mesclagem de arquivos"""
+    pass
+
+def garantir_diretorios(diretorios: list) -> None:
+    """Cria os diretórios necessários, se não existirem"""
+    for diretorio in diretorios:
+        try:
+            os.makedirs(diretorio, exist_ok=True)
+        except OSError as e:
+            print(f"Erro ao criar o diretório {diretorio}: {e}")
+            raise
+
+def limpar_nome_arquivo(nome: str) -> str:
+    """Remove caracteres problemáticos do nome do arquivo"""
+    caracteres_invalidos = '<>:"/\\|?*'
+    for char in caracteres_invalidos:
+        nome = nome.replace(char, '_')
+    return nome
+
+def baixar_conteudo(url: str, apenas_audio: bool = False) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Baixa o conteúdo da URL informada.
+
+    Args:
+        url: URL do vídeo
+        apenas_audio: Define se será baixado somente o áudio
+
+    Returns:
+        Tupla contendo (caminho_video, caminho_audio)
+    """
     ydl_opts = {
-        "format": "bestaudio/best" if download_audio else "bestvideo+bestaudio/best",
-        "outtmpl": "media/%(title)s.%(ext)s",
-        "noplaylist": True,  # Não baixar playlists
+        "format": "bestaudio/best" if apenas_audio else "bestvideo+bestaudio/best",
+        "outtmpl": "tmp/%(title)s.%(ext)s",
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        video_title = info.get("title", "video")
-        file_extension = info.get("ext", "mp4")  # Obter a extensão do arquivo
-
-        print(f"Baixando: {video_title}")
-        ydl.download([url])
-        print(f"Download concluído: {video_title}")
-
-        # Determinar o nome do arquivo de acordo com o tipo de download
-        if download_audio:
-            content_file = f"media/{video_title}.{file_extension}"
-            return content_file, None
-        else:
-            video_file = f"media/{video_title}.mp4"
-            audio_file = f"media/{video_title}.webm"  # ou o formato correspondente
-            return video_file, audio_file
-
-def convert_to_mp4(video_file, audio_file):
-    # Gerar nome do arquivo final
-    output_file = video_file.replace(".mp4", "_final.mp4")
-
-    # Verificar se os arquivos existem
-    if not os.path.isfile(video_file):
-        print(f"Arquivo de vídeo não encontrado: {video_file}")
-        return
-
-    if not os.path.isfile(audio_file):
-        print(f"Arquivo de áudio não encontrado: {audio_file}")
-        return
-
-    # Comando FFmpeg para combinar o vídeo e o áudio
-    ffmpeg_cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        video_file,  # Arquivo de vídeo
-        "-i",
-        audio_file,  # Arquivo de áudio
-        "-c:v",
-        "copy",  # Copiar o vídeo sem reencodificar
-        "-c:a",
-        "aac",  # Codificar o áudio em AAC
-        "-b:a",
-        "192k",  # Taxa de bits para o áudio
-        "-preset",
-        "fast",  # Usar preset rápido para melhorar a velocidade
-        output_file,
-    ]
     try:
-        subprocess.run(ffmpeg_cmd, check=True)
-        print(f"Arquivo final combinado criado: {output_file}")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            titulo = limpar_nome_arquivo(info.get("title", "video"))
+            extensao = info.get("ext", "mp4")
+
+            print(f"\nBaixando: {titulo}")
+            ydl.download([url])
+            print("Download concluído com sucesso")
+
+            if apenas_audio:
+                return f"tmp/{titulo}.{extensao}", None
+            else:
+                return f"tmp/{titulo}.{extensao}", None
+                
+    except Exception as e:
+        print(f"\nErro durante o download: {e}")
+        raise ErroDownload(f"Falha ao baixar o conteúdo: {e}")
+
+def mesclar_arquivos(video: str, audio: str) -> str:
+    """
+    Mescla arquivos de vídeo e áudio usando o FFmpeg.
+
+    Args:
+        video: Caminho do arquivo de vídeo
+        audio: Caminho do arquivo de áudio
+
+    Returns:
+        Caminho do arquivo final mesclado
+    """
+    if not all(os.path.isfile(f) for f in [video, audio]):
+        faltando = [f for f in [video, audio] if not os.path.isfile(f)]
+        raise FileNotFoundError(f"Arquivos ausentes: {', '.join(faltando)}")
+
+    arquivo_saida = video.replace(".mp4", "_mesclado.mp4")
+    
+    try:
+        subprocess.run([
+            "ffmpeg",
+            "-y",
+            "-i", video,
+            "-i", audio,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-loglevel", "error",
+            "-stats",
+            arquivo_saida
+        ], check=True)
+        
+        print(f"\nArquivo mesclado com sucesso: {arquivo_saida}")
+        return arquivo_saida
+        
     except subprocess.CalledProcessError as e:
-        print(f"Erro ao executar FFmpeg: {e}")
+        print(f"\nFalha na mesclagem com FFmpeg: {e}")
+        raise ErroMerge("Falha ao mesclar vídeo e áudio")
+
+def mover_para_downloads() -> None:
+    """Move todos os arquivos da pasta 'tmp' para a pasta 'downloads'"""
+    try:
+        for arquivo in os.listdir("tmp"):
+            origem = os.path.join("tmp", arquivo)
+            destino = os.path.join("downloads", arquivo)
+            
+            if os.path.isfile(origem):
+                shutil.move(origem, destino)
+                
+        print("\nTodos os arquivos foram movidos para a pasta 'downloads'")
+        
+    except Exception as e:
+        print(f"\nErro ao mover arquivos: {e}")
+        raise
+
+def obter_entrada_usuario() -> Tuple[str, str]:
+    """Solicita e valida entrada do usuário"""
+    while True:
+        url = input("\nDigite a URL do vídeo: ").strip()
+        if url:
+            break
+        print("Por favor, insira uma URL válida")
+
+    while True:
+        opcao = input("\nEscolha uma opção:\n1 - Apenas áudio\n2 - Vídeo com áudio\n> ").strip()
+        if opcao in (AUDIO_OPTION, VIDEO_OPTION):
+            break
+        print("Digite 1 ou 2")
+
+    return url, opcao
+
+def main() -> None:
+    """Função principal de execução"""
+    print("\nDownloader de YouTube")
+    print("---------------------")
+    
+    try:
+        url, opcao = obter_entrada_usuario()
+        garantir_diretorios(REQUIRED_DIRS)
+        
+        if opcao == AUDIO_OPTION:
+            print("\nBaixando apenas o áudio...")
+            audio, _ = baixar_conteudo(url, apenas_audio=True)
+        else:
+            print("\nBaixando vídeo com áudio...")
+            video, _ = baixar_conteudo(url)
+        
+        mover_para_downloads()
+        
+    except Exception as e:
+        print(f"\nErro: {e}")
+    finally:
+        print("\nOperação finalizada")
 
 if __name__ == "__main__":
-    video_url = input("URL do vídeo: \n")
-    choice = input("Baixar apenas áudio (1) ou vídeo e áudio (2)? \n").strip().lower()
-
-    if choice == "1":
-        audio_file, _ = download_content(video_url, download_audio=True)
-        if audio_file:
-            print(f"Arquivo de áudio baixado: {audio_file}")
-    elif choice == "2":
-        video_file, audio_file = download_content(video_url)
-        if video_file and audio_file:
-            convert_to_mp4(video_file, audio_file)
-    else:
-        print("Escolha inválida. Por favor, escolha '1' para áudio ou '2' para vídeo e áudio.")
+    main()
