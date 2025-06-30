@@ -1,66 +1,60 @@
-# Download e Conversão de Vídeos
+# Downloader Vídeo | Áudio do YouTube
 
-Este projeto permite baixar vídeos ou áudios de URLs usando `yt-dlp` e combinar arquivos de vídeo e áudio em um único arquivo usando `FFmpeg`.
+## Visão Geral
+
+Este script em Python oferece uma maneira prática de baixar vídeos ou áudios do YouTube e de outros sites suportados utilizando o `yt-dlp`, usando o `FFmpeg` para renderizar o arquivo final.
 
 ## Funcionalidades
 
-- **Download de Vídeo e Áudio**: Baixa o vídeo completo com áudio ou apenas o áudio de uma URL fornecida.
-- **Conversão de Arquivo**: Combina arquivos de vídeo e áudio em um único arquivo.
+- **Opções Flexíveis de Download**:
+  - Baixar vídeo com áudio
+  - Baixar somente o áudio
+- **Gerenciamento Automático de Arquivos**:
+  - Arquivos temporários são armazenados na pasta `tmp/`
+  - Arquivos finais são movidos para a pasta `downloads/`
+- **Preservação de Qualidade**:
+  - Utiliza a melhor qualidade disponível por padrão
+  - Mesclagem inteligente sem recodificação desnecessária
 
-## Pré-requisitos
+## Requisitos
 
-Certifique-se de ter o Python 3.x e `FFmpeg` instalados em seu sistema.
+- Python 3.7 ou superior  
+- FFmpeg (deve estar no PATH do sistema)  
+- Pacotes Python necessários (instale via `requirements.txt`)
 
-- [Python](https://www.python.org/downloads/)
-- [FFmpeg](https://ffmpeg.org/download.html)
+## Instalação
 
-### Instalação
-
-1. Clone este repositório:
-
+1. Clone o repositório:
    ```bash
    git clone https://github.com/cesardmn/get_yt.git
    cd get_yt
    ```
 
-2. Instale as dependências usando `pip`:
-
+2. Instale as dependências:
    ```bash
    pip install -r requirements.txt
    ```
-### Uso
 
-1. Execute o script Python:
+3. Certifique-se de que o FFmpeg está instalado e acessível:
+   - **Windows**: Baixe em [ffmpeg.org](https://ffmpeg.org/download.html) e adicione ao PATH
+   - **macOS**: `brew install ffmpeg`
+   - **Linux**: `sudo apt install ffmpeg`
 
-   ```bash
-   python main.py
-   ```
+## Uso
 
-2. Quando solicitado, insira a URL do vídeo.
-
-3. Escolha entre:
-   - **1**: Baixar apenas o áudio.
-   - **2**: Baixar vídeo e áudio e combinar em um arquivo.
-
-## Exemplo de Execução
-
+Execute o script:
 ```bash
-URL do vídeo: 
-https://www.youtube.com/watch?v=dQw4w9WgXcQ
-Baixar apenas áudio (1) ou vídeo e áudio (2)? 
-2
+python main.py
 ```
 
-Se você escolher a opção **2**, o script baixará o vídeo e o áudio e, em seguida, criará um arquivo combinado.
+Siga as instruções:
+1. Insira a URL do vídeo quando solicitado  
+2. Escolha entre:
+   - `1` para baixar apenas o áudio  
+   - `2` para baixar vídeo com áudio  
 
-## Contribuições
-
-Se você deseja contribuir para o projeto, sinta-se à vontade para abrir uma _issue_ ou enviar um _pull request_ com melhorias ou correções. Certifique-se de seguir as boas práticas e manter a consistência com o estilo do código existente.
+Os arquivos baixados serão salvos na pasta `downloads/`.
 
 ## Licença
 
-Este projeto é de propriedade de Cesar Dimi e está licenciado sob a [Licença MIT](LICENSE).
-
-## Contato
-
-Para mais informações, você pode entrar em contato através do [perfil de Cesar Dimi](https://cesardmn.github.io/).
+Este projeto está licenciado sob a Licença MIT - consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
